@@ -1,4 +1,5 @@
 import os
+import math
 import cv2
 import torch
 import numpy as np
@@ -271,20 +272,31 @@ def nudenet_execute(
                 # d_pct 表示在高或宽方向上的相对占比，用于估算区域大小。
                 if block_count_scaling == "japan":
                     # 日本 AV 风格：自适应块数，忽略用户设置的 blocks
-                    # 根据区域实际像素大小计算块数，确保打码效果
-                    # 目标：每个块的大小在 10-25 像素之间，块数在 5-20 之间
+                    # 使用平滑的自适应算法，根据区域大小动态计算块数和块大小
                     avg_size = (w_expanded + h_expanded) / 2  # 区域平均尺寸
-                    target_block_size = 15  # 目标块大小（像素）
+
+                    # 自适应目标块大小：使用对数函数，区域越大块越大，但增长逐渐放缓
+                    # 范围：15-30 像素，确保打码效果
+                    # 公式：target_block_size = 15 + 15 * (1 - exp(-avg_size/400))
+                    # 这样：小区域(50px)≈15px，中区域(200px)≈20px，大区域(1000px)≈28px
+                    target_block_size = 15 + 15 * (1 - math.exp(-avg_size / 400))
+                    target_block_size = max(15, min(30, target_block_size))  # 限制在 15-30 之间
+
                     calculated_blocks = int(avg_size / target_block_size)
 
-                    # 限制块数范围：最小 5（保证有马赛克），最大 20（不能显示明确部位）
-                    scaled_blocks = max(5, min(20, calculated_blocks))
+                    # 自适应最大块数：使用对数函数，区域越大允许更多块数
+                    # 范围：10-40 块
+                    # 公式：max_blocks = 10 + 30 * (1 - exp(-avg_size/500))
+                    max_blocks = 10 + 30 * (1 - math.exp(-avg_size / 500))
+                    max_blocks = max(10, min(40, int(max_blocks)))  # 限制在 10-40 之间
+
+                    scaled_blocks = max(5, min(max_blocks, calculated_blocks))
 
                     # 如果区域很小，确保至少有 3 块
                     if avg_size < 30:
                         scaled_blocks = max(3, scaled_blocks)
 
-                    print(f"[Japan Mode] Region size: {w_expanded}x{h_expanded}, Calculated blocks: {scaled_blocks}")
+                    print(f"[Japan Mode] Region size: {w_expanded}x{h_expanded} (avg={avg_size:.1f}px), target_block_size={target_block_size:.1f}px, max_blocks={max_blocks}, Calculated blocks: {scaled_blocks}")
                 elif block_count_scaling != "fixed":
                     d_pct = max(h_expanded / image_height, w_expanded / image_width)
                     if block_count_scaling == "fewer_when_large":
