@@ -273,24 +273,25 @@ def nudenet_execute(
                 if block_count_scaling == "japan":
                     # 日本 AV 风格：自适应块数，忽略用户设置的 blocks
                     # 使用平滑的自适应算法，根据区域大小动态计算块数和块大小
+                    # 目标：块更大，块数更少，确保打码效果
                     avg_size = (w_expanded + h_expanded) / 2  # 区域平均尺寸
 
                     # 自适应目标块大小：使用对数函数，区域越大块越大，但增长逐渐放缓
-                    # 范围：15-30 像素，确保打码效果
-                    # 公式：target_block_size = 15 + 15 * (1 - exp(-avg_size/400))
-                    # 这样：小区域(50px)≈15px，中区域(200px)≈20px，大区域(1000px)≈28px
-                    target_block_size = 15 + 15 * (1 - math.exp(-avg_size / 400))
-                    target_block_size = max(15, min(30, target_block_size))  # 限制在 15-30 之间
+                    # 范围：20-50 像素（增大范围，让块更大）
+                    # 公式：target_block_size = 20 + 30 * (1 - exp(-avg_size/500))
+                    # 这样：小区域(50px)≈20px，中区域(200px)≈28px，大区域(1000px)≈45px
+                    target_block_size = 20 + 30 * (1 - math.exp(-avg_size / 500))
+                    target_block_size = max(20, min(50, target_block_size))  # 限制在 20-50 之间
 
                     calculated_blocks = int(avg_size / target_block_size)
 
                     # 自适应最大块数：使用对数函数，区域越大允许更多块数
-                    # 范围：10-40 块
-                    # 公式：max_blocks = 10 + 30 * (1 - exp(-avg_size/500))
-                    max_blocks = 10 + 30 * (1 - math.exp(-avg_size / 500))
-                    max_blocks = max(10, min(40, int(max_blocks)))  # 限制在 10-40 之间
+                    # 范围：5-25 块（减少最大块数，让块更大）
+                    # 公式：max_blocks = 5 + 20 * (1 - exp(-avg_size/600))
+                    max_blocks = 5 + 20 * (1 - math.exp(-avg_size / 600))
+                    max_blocks = max(5, min(25, int(max_blocks)))  # 限制在 5-25 之间
 
-                    scaled_blocks = max(5, min(max_blocks, calculated_blocks))
+                    scaled_blocks = max(3, min(max_blocks, calculated_blocks))
 
                     # 如果区域很小，确保至少有 3 块
                     if avg_size < 30:
