@@ -29,8 +29,27 @@ def pixelate(
     """
     (h, w) = image.shape[:2]  # 只需要高度和宽度；通道数不参与网格划分。
 
-    # 保存原始图像（如果启用圆角，需要用于遮罩）
-    original_image = image.copy() if rounded else None
+    # 如果未启用圆角，使用与 pixelate_old 完全相同的逻辑
+    if not rounded:
+        # 完全复制 pixelate_old 的逻辑，确保颜色一致
+        x_steps = np.linspace(0, w, blocks + 1, dtype="int")
+        y_steps = np.linspace(0, h, blocks + 1, dtype="int")
+
+        for i in range(1, len(y_steps)):
+            for j in range(1, len(x_steps)):
+                start_x = x_steps[j - 1]
+                start_y = y_steps[i - 1]
+                end_x = x_steps[j]
+                end_y = y_steps[i]
+
+                roi = image[start_y:end_y, start_x:end_x]
+                mean_color = np.mean(roi, axis=(0, 1))
+                image[start_y:end_y, start_x:end_x] = mean_color
+
+        return image
+
+    # 启用圆角时，需要保存原始图像
+    original_image = image.copy()
 
     # 生成网格切分点：blocks+1 个边界（含 0 和 w/h）。使用 linspace 保证均匀分割。
     x_steps = np.linspace(0, w, blocks + 1, dtype="int")
@@ -49,8 +68,6 @@ def pixelate(
             # 对该块做颜色均值；axis=(0,1) 表示在空间维度上求平均，保留通道维度。
             mean_color = np.mean(roi, axis=(0, 1))
             # 用均值填满 ROI（先进行像素化，圆角稍后处理）
-            # 确保数据类型匹配，与 pixelate_old 保持一致
-            # 直接赋值，让 numpy 自动处理类型转换（与 pixelate_old 一致）
             image[start_y:end_y, start_x:end_x] = mean_color
 
     # 如果启用圆角，对整个区域应用圆角遮罩
@@ -109,5 +126,24 @@ def pixelate(
                 if image.dtype != np.float32:
                     blended = blended.astype(image.dtype)
                 image[:] = blended
+
+    return image
+
+
+def pixelate_old(image: np.ndarray, blocks: int = 3) -> np.ndarray:
+    (h, w) = image.shape[:2]
+    x_steps = np.linspace(0, w, blocks + 1, dtype="int")
+    y_steps = np.linspace(0, h, blocks + 1, dtype="int")
+
+    for i in range(1, len(y_steps)):
+        for j in range(1, len(x_steps)):
+            start_x = x_steps[j - 1]
+            start_y = y_steps[i - 1]
+            end_x = x_steps[j]
+            end_y = y_steps[i]
+
+            roi = image[start_y:end_y, start_x:end_x]
+            mean_color = np.mean(roi, axis=(0, 1))
+            image[start_y:end_y, start_x:end_x] = mean_color
 
     return image
