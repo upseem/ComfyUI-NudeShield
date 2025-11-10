@@ -49,6 +49,8 @@ def pixelate(
             # 对该块做颜色均值；axis=(0,1) 表示在空间维度上求平均，保留通道维度。
             mean_color = np.mean(roi, axis=(0, 1))
             # 用均值填满 ROI（先进行像素化，圆角稍后处理）
+            # 确保数据类型匹配，与 pixelate_old 保持一致
+            # 直接赋值，让 numpy 自动处理类型转换（与 pixelate_old 一致）
             image[start_y:end_y, start_x:end_x] = mean_color
 
     # 如果启用圆角，对整个区域应用圆角遮罩
@@ -90,18 +92,22 @@ def pixelate(
 
             # 融合：image = original*(1-mask) + pixelated*mask
             # 圆角区域外恢复原图，圆角区域内保持像素化
-            if image.dtype != np.float32:
+            # 确保数据类型正确，避免颜色变浅
+            if image.dtype == np.uint8:
+                # 对于 uint8，先转换为 float 进行计算，再转回
                 image_f = image.astype(np.float32)
                 original_f = original_image.astype(np.float32)
+                blended = original_f * (1.0 - mask[:, :, None]) + image_f * mask[:, :, None]
+                # 使用 np.round 确保颜色深度正确
+                blended = np.round(blended).clip(0, 255).astype(np.uint8)
+                image[:] = blended
             else:
-                image_f = image
-                original_f = original_image
-
-            blended = original_f * (1.0 - mask[:, :, None]) + image_f * mask[:, :, None]
-
-            # 写回，保持原 dtype
-            if image.dtype != np.float32:
-                blended = blended.astype(image.dtype)
-            image[:] = blended
+                # 对于 float 类型，直接计算
+                image_f = image.astype(np.float32) if image.dtype != np.float32 else image
+                original_f = original_image.astype(np.float32) if original_image.dtype != np.float32 else original_image
+                blended = original_f * (1.0 - mask[:, :, None]) + image_f * mask[:, :, None]
+                if image.dtype != np.float32:
+                    blended = blended.astype(image.dtype)
+                image[:] = blended
 
     return image
