@@ -240,10 +240,10 @@ def nudenet_execute(
             inference_resolution,  # 使用推理分辨率
             min_score,
         )
-        # 仅处理不在白名单 filtered_labels 中的检测目标。
-        # 使用标签名进行过滤（与原版一致）
+        # 仅处理在 filtered_labels 列表中的检测目标（勾选的标签才会被打码）
+        # filtered_labels 包含用户勾选的需要打码的标签
         censored = [d for d in detections if d.get(
-            "class") not in filtered_labels]
+            "class") in filtered_labels]
 
         # 初始块数，以 blocks 为基准；若为 fixed 策略则后续不再缩放。
         if block_count_scaling == "fixed":
@@ -387,7 +387,7 @@ class FilteredLabel:
         """
         return {
             "required": {
-                key: ("BOOLEAN", {"default": True})
+                key: ("BOOLEAN", {"default": False})
                 for key in LABELS_CLASSIDS_MAPPING.keys()  # 使用标签名作为 key
             }
         }
@@ -397,12 +397,13 @@ class FilteredLabel:
     CATEGORY = "Nudenet"
 
     def filter_labels(self, *args, **kwags):
-        # 返回标签名列表（与原版一致），而不是 class_id 列表
-        white_list_labels = []
-        for label, is_filter in kwags.items():
-            if not is_filter:
-                white_list_labels.append(label)  # 直接使用标签名
-        return (white_list_labels,)
+        # 返回需要打码的标签名列表
+        # 只有勾选（True）的标签才会被打码，默认都是 False（不打码）
+        censored_labels = []
+        for label, should_censor in kwags.items():
+            if should_censor:  # 如果勾选（True），则加入打码列表
+                censored_labels.append(label)
+        return (censored_labels,)
 
 
 class NudenetModelLoader:

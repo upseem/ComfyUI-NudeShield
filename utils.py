@@ -2,10 +2,6 @@
 import numpy as np
 import cv2
 
-
-
-
-
 def pixelate(
     image: np.ndarray,
     blocks: int = 3,
