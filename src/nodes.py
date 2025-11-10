@@ -52,7 +52,8 @@ LABELS_CLASSIDS_MAPPING = labels_classids_mapping = {
 BLOCK_COUNT_BEHAVIOURS = [
     "fixed",
     "fewer_when_small",
-    "fewer_when_large"
+    "fewer_when_large",
+    "japan"  # 日本 AV 风格：自适应块数，保证打码效果，忽略用户设置的 blocks
 ]
 
 def read_image(img, target_size=320):
@@ -268,15 +269,37 @@ def nudenet_execute(
 
                 # 非固定策略下，根据目标框占图像的比例对 blocks 做自适应缩放。
                 # d_pct 表示在高或宽方向上的相对占比，用于估算区域大小。
-                if block_count_scaling != "fixed":
+                if block_count_scaling == "japan":
+                    # 日本 AV 风格：自适应块数，忽略用户设置的 blocks
+                    # 根据区域实际像素大小计算块数，确保打码效果
+                    # 目标：每个块的大小在 10-25 像素之间，块数在 5-20 之间
+                    avg_size = (w_expanded + h_expanded) / 2  # 区域平均尺寸
+                    target_block_size = 15  # 目标块大小（像素）
+                    calculated_blocks = int(avg_size / target_block_size)
+
+                    # 限制块数范围：最小 5（保证有马赛克），最大 20（不能显示明确部位）
+                    scaled_blocks = max(5, min(20, calculated_blocks))
+
+                    # 如果区域很小，确保至少有 3 块
+                    if avg_size < 30:
+                        scaled_blocks = max(3, scaled_blocks)
+
+                    print(f"[Japan Mode] Region size: {w_expanded}x{h_expanded}, Calculated blocks: {scaled_blocks}")
+                elif block_count_scaling != "fixed":
                     d_pct = max(h_expanded / image_height, w_expanded / image_width)
                     if block_count_scaling == "fewer_when_large":
-                        # 区域越大，块数越少（从 blocks 向 1 过渡）。
-                        scaled_blocks = int(blocks + d_pct * (1 - blocks))
+                        # 区域越大，块数越少（从 blocks 向 min_blocks 过渡）。
+                        # 确保大区域时块数不会太多，保持打码效果
+                        min_blocks = max(1, min(5, blocks // 4))  # 大区域时最少块数（但不超过 blocks/4）
+                        scaled_blocks = int(blocks + d_pct * (min_blocks - blocks))
+                        scaled_blocks = max(1, min(scaled_blocks, blocks))  # 限制在 [1, blocks] 范围内
                     else:  # elif block_count_scaling == "fewer_when_small"
                         # 区域越小，块数越少（从 1 向 blocks 过渡）。
                         scaled_blocks = int(1 + d_pct * (blocks - 1))
+                        scaled_blocks = max(1, min(scaled_blocks, blocks))  # 限制在 [1, blocks] 范围内
                 else:
+                    # fixed 模式：直接使用 blocks，但如果 blocks 太大，给出警告或限制
+                    # 为了保持打码效果，建议 blocks <= 10，但这里不强制限制，让用户自己控制
                     scaled_blocks = blocks
 
                 # 使用像素化处理目标区域，传入 corner_ratio 参数

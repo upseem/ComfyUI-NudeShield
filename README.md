@@ -190,8 +190,14 @@ pip install onnxruntime-gpu
   - `fixed`：固定块数（所有区域使用相同的块数）
   - `fewer_when_small`：区域越小，块数越少（小区域打码更强）
   - `fewer_when_large`：区域越大，块数越少（大区域打码更强）
+  - `japan`：**日本 AV 风格**（推荐）✨
+    - 自动计算块数，忽略用户设置的 `blocks` 参数
+    - 根据区域大小自适应，确保打码效果
+    - 块数范围：5-20（保证有马赛克，且不显示明确部位）
+    - 模拟日本 AV 打码风格
 - **说明**：根据打码区域大小自动调整块数
 - **建议**：
+  - `japan`：**推荐使用**，自动适配，无需调整 `blocks` 参数
   - `fixed`：需要统一效果时使用
   - `fewer_when_small`：小区域需要更强打码时使用
   - `fewer_when_large`：大区域需要更强打码时使用
@@ -309,7 +315,12 @@ pip install onnxruntime-gpu
 
 ### Q7: 如何模拟日本 AV 的打码风格？
 
-**A**: 使用以下参数组合：
+**A**: **推荐使用 `japan` 模式**（最简单）：
+- `block_count_scaling = "japan"` ✨ **推荐**
+- 自动计算块数，无需设置 `blocks`
+- 自动适配区域大小，确保打码效果
+
+**或者手动设置**：
 - `blocks = 15-25`（高密度马赛克）
 - `corner_ratio = 0.0`（矩形块）
 - `expand_pixels = 5-10`（稍微扩展）
